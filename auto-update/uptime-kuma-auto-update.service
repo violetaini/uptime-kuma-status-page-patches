@@ -1,0 +1,9 @@
+[Unit]
+Description=Conservative Uptime Kuma image update
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/uptime-kuma-auto-update.env
+ExecStart=/usr/local/sbin/uptime-kuma-auto-update.sh

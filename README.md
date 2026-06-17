@@ -1,6 +1,7 @@
 # Uptime Kuma status page patches
 
 这个仓库记录一个 Uptime Kuma 状态页在启用 Cloudflare Tunnel 后做过的补丁方式。
+
 ## 解决的问题
 
 启用 Cloudflare Tunnel / Cloudflare 访问保护后，浏览器在无痕窗口里访问 `/favicon.ico` 可能被 Cloudflare 拦截，导致状态页角标丢失。Uptime Kuma 状态页还会在运行时用 Favico/状态徽标改写 favicon，所以只改 nginx 或只上传图标不够稳定。
@@ -17,7 +18,9 @@
 - `patch-favicon.sh`：挂到 Uptime Kuma 容器里的启动补丁脚本。容器每次启动都会执行。
 - `compose.example.yml`：只展示和补丁有关的 Docker Compose 写法，数据库、端口和已有 volume 按你自己的项目保留。
 - `status-page-custom.css`：粘贴到 Uptime Kuma 状态页「Custom CSS」里的样式。
+- `auto-update/`：保守自动追新脚本、systemd service/timer 和 env 示例。
 - `nginx/favicon-location.conf`：可选 nginx 兜底片段，给 `/favicon.ico` 直接返回本地图标。
+- `docs/auto-update.md`：自动更新部署、测试、定时器和失败回滚说明。
 - `docs/update-and-rollback.md`：更新、重启和回滚方式。
 - `docs/verification.md`：上线后如何确认 favicon 和一言没有再失效。
 
@@ -128,6 +131,45 @@ docker compose logs --tail=200 uptime-kuma
 ```
 
 如果日志里出现 `Unable to patch status_page.js favicon renderer` 或 `Unable to patch status-page manifest icon`，说明 Uptime Kuma 新版本改了内部文件结构，需要调整 `patch-favicon.sh`。临时恢复服务时，可以先回滚到更新前备份的 Compose/数据，或临时移除补丁挂载和自定义 `entrypoint` 后启动原版 Kuma。
+
+## 自动追新
+
+仓库里提供了一个保守自动更新器，适合用 systemd timer 每周检查一次新镜像。它不会盲目替换容器，而是按下面流程执行：
+
+1. 检查 Compose 里仍然存在 `favicon.ico`、`patch-favicon.sh` 和自定义 `entrypoint`。
+2. 记录当前 `louislam/uptime-kuma:2` 镜像 id。
+3. 执行 `docker compose pull uptime-kuma`。
+4. 只有镜像 id 变化时才备份并重建容器。
+5. 更新后检查容器运行状态、补丁 marker、Kuma 日志和可选健康检查地址。
+6. 如果验证失败，尝试用更新前的本地镜像 tag 自动回滚。
+
+安装方式：
+
+```bash
+sudo install -m 0755 auto-update/uptime-kuma-auto-update.sh /usr/local/sbin/uptime-kuma-auto-update.sh
+sudo install -m 0644 auto-update/uptime-kuma-auto-update.service /etc/systemd/system/uptime-kuma-auto-update.service
+sudo install -m 0644 auto-update/uptime-kuma-auto-update.timer /etc/systemd/system/uptime-kuma-auto-update.timer
+sudo install -m 0600 auto-update/uptime-kuma-auto-update.env.example /etc/uptime-kuma-auto-update.env
+sudoedit /etc/uptime-kuma-auto-update.env
+```
+
+上线前先 dry-run，再手动跑一次 service：
+
+```bash
+sudo /usr/local/sbin/uptime-kuma-auto-update.sh --dry-run
+sudo systemctl daemon-reload
+sudo systemctl start uptime-kuma-auto-update.service
+sudo journalctl -u uptime-kuma-auto-update.service -n 120 --no-pager
+```
+
+确认无误后启用定时器：
+
+```bash
+sudo systemctl enable --now uptime-kuma-auto-update.timer
+systemctl list-timers uptime-kuma-auto-update.timer
+```
+
+完整配置见 `docs/auto-update.md`。
 
 ## 更新后补丁会不会失效
 

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${FAKE_DOCKER_STATE:?FAKE_DOCKER_STATE is required}"
+: "${FAKE_DOCKER_LOG:?FAKE_DOCKER_LOG is required}"
+
+printf 'docker %s\n' "$*" >> "$FAKE_DOCKER_LOG"
+
+if [[ "$#" -ge 1 && "$1" == "version" ]]; then
+    echo "Fake Docker version 1.0"
+    exit 0
+fi
+
+if [[ "$#" -ge 4 && "$1" == "image" && "$2" == "inspect" ]]; then
+    state="$(cat "$FAKE_DOCKER_STATE")"
+    if [[ "$state" == "new" ]]; then
+        echo "sha256:new"
+    else
+        echo "sha256:old"
+    fi
+    exit 0
+fi
+
+if [[ "$#" -ge 3 && "$1" == "tag" ]]; then
+    exit 0
+fi
+
+if [[ "$#" -ge 1 && "$1" == "compose" ]]; then
+    shift
+
+    if [[ "$#" -ge 1 && "$1" == "-f" ]]; then
+        # Rollback path: docker compose -f base -f override up -d uptime-kuma
+        while [[ "$#" -gt 0 && "$1" == "-f" ]]; do
+            shift 2
+        done
+    fi
+
+    case "${1:-}" in
+        config)
+            cat <<'YAML'
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    volumes:
+      - ./custom/favicon.ico:/app/custom/favicon.ico:ro
+      - ./custom/patch-favicon.sh:/app/custom/patch-favicon.sh:ro
+    entrypoint:
+      - /usr/bin/dumb-init
+      - --
+      - /bin/sh
+      - /app/custom/patch-favicon.sh
+YAML
+            ;;
+        pull)
+            echo "new" > "$FAKE_DOCKER_STATE"
+            echo "Pulled ${2:-}"
+            ;;
+        up)
+            echo "Started ${*: -1}"
+            ;;
+        ps)
+            echo "uptime-kuma"
+            ;;
+        logs)
+            echo "Uptime Kuma started"
+            ;;
+        exec)
+            exit 0
+            ;;
+        *)
+            echo "fake docker: unsupported compose command: $*" >&2
+            exit 2
+            ;;
+    esac
+    exit 0
+fi
+
+echo "fake docker: unsupported command: $*" >&2
+exit 2
