@@ -1,6 +1,6 @@
 services:
   uptime-kuma:
-    image: louislam/uptime-kuma:2
+    image: louislam/uptime-kuma:latest
     restart: unless-stopped
     volumes:
       # Keep your existing /app/data or database configuration.
