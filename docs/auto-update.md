@@ -2,7 +2,8 @@
 
 The auto updater is intentionally conservative:
 
-- It tracks the configured Docker image, defaulting to `louislam/uptime-kuma:latest`.
+- It tracks the configured Docker image, defaulting to `louislam/uptime-kuma:2`.
+- It deliberately avoids `louislam/uptime-kuma:latest`, because Uptime Kuma marks that tag as deprecated and pointing to v1.
 - It runs `docker compose pull uptime-kuma`.
 - It recreates the Kuma container only when the pulled image id changed, unless `--force` is used.
 - It backs up Compose files and `custom/` before recreating the container.
@@ -31,7 +32,7 @@ For the current Compose layout, the important values are usually:
 ```env
 PROJECT_DIR=/www/server/uptime-kuma
 KUMA_SERVICE=uptime-kuma
-KUMA_IMAGE=louislam/uptime-kuma:latest
+KUMA_IMAGE=louislam/uptime-kuma:2
 BACKUP_ROOT=/www/server/uptime-kuma/backups/auto-update
 BACKUP_DATA_DIR=0
 BACKUP_SQL=0

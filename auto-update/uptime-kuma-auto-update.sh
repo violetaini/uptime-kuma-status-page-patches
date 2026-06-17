@@ -3,7 +3,7 @@ set -eu
 
 PROJECT_DIR="${PROJECT_DIR:-/www/server/uptime-kuma}"
 KUMA_SERVICE="${KUMA_SERVICE:-uptime-kuma}"
-KUMA_IMAGE="${KUMA_IMAGE:-louislam/uptime-kuma:latest}"
+KUMA_IMAGE="${KUMA_IMAGE:-louislam/uptime-kuma:2}"
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 COMPOSE_COMMAND="${COMPOSE_COMMAND:-docker compose}"
 BACKUP_ROOT="${BACKUP_ROOT:-$PROJECT_DIR/backups/auto-update}"

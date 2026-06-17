@@ -11,7 +11,7 @@ mkdir -p "$project_dir/custom" "$project_dir/data"
 cat > "$project_dir/docker-compose.yml" <<'YAML'
 services:
   uptime-kuma:
-    image: louislam/uptime-kuma:latest
+    image: louislam/uptime-kuma:2
     volumes:
       - ./custom/favicon.ico:/app/custom/favicon.ico:ro
       - ./custom/patch-favicon.sh:/app/custom/patch-favicon.sh:ro

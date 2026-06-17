@@ -41,7 +41,7 @@ chmod 755 custom/patch-favicon.sh
 ```yaml
 services:
   uptime-kuma:
-    image: louislam/uptime-kuma:latest
+    image: louislam/uptime-kuma:2
     volumes:
       - ./custom/favicon.ico:/app/custom/favicon.ico:ro
       - ./custom/patch-favicon.sh:/app/custom/patch-favicon.sh:ro
@@ -85,7 +85,7 @@ docker compose config | grep -E 'image:|patch-favicon|favicon.ico|entrypoint|com
 
 确认输出里仍然能看到：
 
-- `image: louislam/uptime-kuma:latest`
+- `image: louislam/uptime-kuma:2`
 - `./custom/favicon.ico:/app/custom/favicon.ico:ro`
 - `./custom/patch-favicon.sh:/app/custom/patch-favicon.sh:ro`
 - `/app/custom/patch-favicon.sh`
@@ -113,7 +113,7 @@ cp -a data "backups/$stamp/data"
 docker compose exec -T db sh -lc 'mariadb-dump -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"' > "backups/$stamp/uptime-kuma.sql"
 ```
 
-如果要自动追最新稳定镜像，Compose 里的 `image` 也要是 `louislam/uptime-kuma:latest`。否则 `docker compose pull uptime-kuma` 只会继续拉原来的 tag。
+如果要自动追 Uptime Kuma v2 的最新版本线，Compose 里的 `image` 也要是 `louislam/uptime-kuma:2`。不要使用字面意义上的 `louislam/uptime-kuma:latest`：实测该 tag 指向旧的 v1 版本，会让当前 v2 服务降级。
 
 确认备份后拉取新镜像并重建 Kuma 容器：
 
@@ -139,7 +139,7 @@ docker compose logs --tail=200 uptime-kuma
 仓库里提供了一个保守自动更新器，适合用 systemd timer 每周检查一次新镜像。它不会盲目替换容器，而是按下面流程执行：
 
 1. 检查 Compose 里仍然存在 `favicon.ico`、`patch-favicon.sh` 和自定义 `entrypoint`。
-2. 记录当前 `louislam/uptime-kuma:latest` 镜像 id。
+2. 记录当前 `louislam/uptime-kuma:2` 镜像 id。
 3. 执行 `docker compose pull uptime-kuma`。
 4. 只有镜像 id 变化时才备份并重建容器。
 5. 更新后检查容器运行状态、补丁 marker、Kuma 日志和可选健康检查地址。
@@ -172,6 +172,10 @@ systemctl list-timers uptime-kuma-auto-update.timer
 ```
 
 完整配置见 `docs/auto-update.md`。
+
+### 关于 `latest`
+
+这里的“追新”使用 `louislam/uptime-kuma:2`，不是 Docker tag `latest`。服务器实测 `louislam/uptime-kuma:latest` 是 Uptime Kuma `1.23.17`，而当前 v2 镜像是 `2.4.0`。自动更新器也已经验证过：尝试切到 `latest` 后补丁验证失败，并自动回滚到 v2 镜像。因此生产环境应追 `:2`，避免被 `latest` 降级到 v1。
 
 ## 更新后补丁会不会失效
 
