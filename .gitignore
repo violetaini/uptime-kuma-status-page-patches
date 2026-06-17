@@ -1,0 +1,15 @@
+.env
+docker.env
+*.local
+*.remote
+*.bak
+*.old
+*.tmp
+*.log
+
+# Site-specific or sensitive local files.
+favicon.ico
+id_rsa
+ssh.txt
+*.pem
+*.key

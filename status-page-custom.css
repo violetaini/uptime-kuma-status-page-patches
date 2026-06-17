@@ -1,0 +1,142 @@
+/* Codex title prominence patch START */
+html body #app h1.title-flex {
+    gap: 16px !important;
+    margin-top: 22px !important;
+    margin-bottom: 34px !important;
+    line-height: 1.05 !important;
+}
+
+html body #app h1.title-flex .logo-wrapper .logo {
+    width: clamp(64px, 7vw, 82px) !important;
+    height: clamp(64px, 7vw, 82px) !important;
+    min-width: clamp(64px, 7vw, 82px) !important;
+    min-height: clamp(64px, 7vw, 82px) !important;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24) !important;
+}
+
+html body #app h1.title-flex > span:last-child {
+    font-size: clamp(2.15rem, 5.2vw, 4.25rem) !important;
+    font-weight: 800 !important;
+    line-height: 1.04 !important;
+}
+
+@media (max-width: 640px) {
+    html body #app h1.title-flex {
+        gap: 12px !important;
+        margin-top: 16px !important;
+        margin-bottom: 24px !important;
+    }
+
+    html body #app h1.title-flex .logo-wrapper .logo {
+        width: 58px !important;
+        height: 58px !important;
+        min-width: 58px !important;
+        min-height: 58px !important;
+    }
+
+    html body #app h1.title-flex > span:last-child {
+        font-size: 2rem !important;
+    }
+}
+/* Codex title prominence patch END */
+
+/* Codex avatar motion patch START */
+html body #app h1.title-flex .logo-wrapper {
+    position: relative !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    width: clamp(64px, 7vw, 82px) !important;
+    height: clamp(64px, 7vw, 82px) !important;
+    min-width: clamp(64px, 7vw, 82px) !important;
+    min-height: clamp(64px, 7vw, 82px) !important;
+    overflow: visible !important;
+    isolation: isolate !important;
+    border-radius: 999px !important;
+    animation: statusAvatarSoftRise 0.76s cubic-bezier(0.22, 1, 0.36, 1) both, statusAvatarFloat 4.2s ease-in-out 0.9s infinite !important;
+    will-change: transform;
+}
+
+html body #app h1.title-flex .logo-wrapper::before,
+html body #app h1.title-flex .logo-wrapper::after {
+    content: "" !important;
+    position: absolute !important;
+    border-radius: inherit !important;
+    pointer-events: none !important;
+}
+
+html body #app h1.title-flex .logo-wrapper::before {
+    inset: -18px !important;
+    z-index: 0 !important;
+    background: radial-gradient(circle at 35% 34%, rgba(191, 214, 236, 0.42), transparent 36%), radial-gradient(circle at 70% 42%, rgba(226, 189, 202, 0.5), transparent 40%), conic-gradient(from 90deg, rgba(191, 214, 236, 0), rgba(191, 214, 236, 0.42), rgba(226, 189, 202, 0.54), rgba(197, 189, 223, 0.5), rgba(220, 203, 150, 0.22), rgba(191, 214, 236, 0)), radial-gradient(circle, rgba(255, 253, 249, 0.44), rgba(255, 250, 246, 0) 66%) !important;
+    filter: blur(16px) !important;
+    opacity: 0.72;
+    animation: statusAvatarHaloSpin 8s linear infinite, statusAvatarAura 4.8s ease-in-out infinite !important;
+}
+
+html body #app h1.title-flex .logo-wrapper::after {
+    inset: -7px !important;
+    z-index: 1 !important;
+    border: 1px solid rgba(255, 253, 249, 0.74) !important;
+    box-shadow: 0 0 0 1px rgba(197, 189, 223, 0.24), 0 0 34px rgba(226, 189, 202, 0.28) !important;
+    opacity: 0.62;
+    animation: statusAvatarRing 3.1s ease-in-out infinite !important;
+}
+
+html body #app h1.title-flex .logo-wrapper .logo {
+    position: relative !important;
+    z-index: 2 !important;
+    border-radius: 999px !important;
+    object-fit: cover !important;
+    box-shadow: 0 18px 40px rgba(107, 94, 126, 0.16), 0 0 34px rgba(191, 214, 236, 0.24), 0 0 46px rgba(226, 189, 202, 0.26) !important;
+}
+
+@keyframes statusAvatarSoftRise {
+    0% { opacity: 0; translate: 0 18px; scale: 0.98; }
+    100% { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@keyframes statusAvatarFloat {
+    0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+    50% { transform: translateY(-6px) scale(1.018) rotate(-0.4deg); }
+}
+
+@keyframes statusAvatarHaloSpin {
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes statusAvatarAura {
+    0%, 100% { opacity: 0.72; scale: 0.96; }
+    50% { opacity: 1; scale: 1.035; }
+}
+
+@keyframes statusAvatarRing {
+    0%, 100% { opacity: 0.58; transform: scale(0.98); }
+    50% { opacity: 1; transform: scale(1.12); }
+}
+
+@media (max-width: 640px) {
+    html body #app h1.title-flex .logo-wrapper {
+        width: 58px !important;
+        height: 58px !important;
+        min-width: 58px !important;
+        min-height: 58px !important;
+    }
+
+    html body #app h1.title-flex .logo-wrapper::before {
+        inset: -15px !important;
+        filter: blur(14px) !important;
+    }
+
+    html body #app h1.title-flex .logo-wrapper::after {
+        inset: -6px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html body #app h1.title-flex .logo-wrapper,
+    html body #app h1.title-flex .logo-wrapper::before,
+    html body #app h1.title-flex .logo-wrapper::after {
+        animation: none !important;
+    }
+}
+/* Codex avatar motion patch END */
