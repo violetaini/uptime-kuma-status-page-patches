@@ -65,6 +65,14 @@ YAML
             echo "Uptime Kuma started"
             ;;
         exec)
+            service="${2:-}"
+            if [[ "$service" == "-T" ]]; then
+                service="${3:-}"
+            fi
+
+            if [[ "$service" == "db" ]]; then
+                echo "-- fake mariadb dump"
+            fi
             exit 0
             ;;
         *)

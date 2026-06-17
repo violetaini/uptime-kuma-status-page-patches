@@ -10,6 +10,7 @@ BACKUP_ROOT="${BACKUP_ROOT:-$PROJECT_DIR/backups/auto-update}"
 BACKUP_DATA_DIR="${BACKUP_DATA_DIR:-0}"
 DATA_DIR="${DATA_DIR:-data}"
 BACKUP_SQL="${BACKUP_SQL:-0}"
+DB_SERVICE="${DB_SERVICE:-db}"
 DB_DUMP_COMMAND="${DB_DUMP_COMMAND:-}"
 STARTUP_WAIT_SECONDS="${STARTUP_WAIT_SECONDS:-15}"
 LOG_TAIL="${LOG_TAIL:-200}"
@@ -148,6 +149,7 @@ print_dry_run_plan() {
     log "  BACKUP_ROOT=$BACKUP_ROOT"
     log "  BACKUP_DATA_DIR=$BACKUP_DATA_DIR"
     log "  BACKUP_SQL=$BACKUP_SQL"
+    log "  DB_SERVICE=$DB_SERVICE"
     log "  AUTO_ROLLBACK=$AUTO_ROLLBACK"
     log "workflow:"
     log "  inspect current image id"
@@ -217,8 +219,11 @@ backup_project() {
     fi
 
     if [ "$BACKUP_SQL" = "1" ]; then
-        [ -n "$DB_DUMP_COMMAND" ] || die "BACKUP_SQL=1 but DB_DUMP_COMMAND is empty"
-        sh -c "$DB_DUMP_COMMAND" > "$backup_dir/database.sql"
+        if [ -n "$DB_DUMP_COMMAND" ]; then
+            sh -c "$DB_DUMP_COMMAND" > "$backup_dir/database.sql"
+        else
+            compose_capture exec -T "$DB_SERVICE" sh -lc 'mariadb-dump -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"' > "$backup_dir/database.sql"
+        fi
     fi
 
     printf '%s\n' "$backup_dir"

@@ -35,6 +35,7 @@ KUMA_IMAGE=louislam/uptime-kuma:latest
 BACKUP_ROOT=/www/server/uptime-kuma/backups/auto-update
 BACKUP_DATA_DIR=0
 BACKUP_SQL=0
+DB_SERVICE=db
 AUTO_ROLLBACK=1
 ```
 
@@ -45,12 +46,14 @@ BACKUP_DATA_DIR=1
 DATA_DIR=data
 ```
 
-If Kuma uses MariaDB / MySQL, keep `BACKUP_DATA_DIR=0` and configure a database dump command instead. Keep the env file mode `0600` if it contains a password.
+If Kuma uses MariaDB / MySQL, keep `BACKUP_DATA_DIR=0` and set `BACKUP_SQL=1`. By default, the updater runs `mariadb-dump` inside `DB_SERVICE` and reads `MARIADB_USER`, `MARIADB_PASSWORD`, and `MARIADB_DATABASE` from that container, so `/etc/uptime-kuma-auto-update.env` does not need to contain the database password.
 
 ```env
 BACKUP_SQL=1
-DB_DUMP_COMMAND='docker compose exec -T uptime-kuma-db mariadb-dump -u <user> -p<password> <database>'
+DB_SERVICE=db
 ```
+
+Only set `DB_DUMP_COMMAND` if your database container uses different environment variables.
 
 ## Test before enabling the timer
 

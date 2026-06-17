@@ -33,6 +33,8 @@ PATH="$repo_root/tests/fake-bin:$PATH" \
 PROJECT_DIR="$project_dir" \
 BACKUP_ROOT="$project_dir/backups/auto-update" \
 BACKUP_DATA_DIR=1 \
+BACKUP_SQL=1 \
+DB_SERVICE=db \
 BACKUP_RETENTION_DAYS=-1 \
 LOCK_DIR="$tmp_dir/update.lock" \
 STARTUP_WAIT_SECONDS=0 \
@@ -48,5 +50,6 @@ test "$backup_count" = "1"
 test -f "$project_dir/backups/auto-update"/*/docker-compose.yml
 test -f "$project_dir/backups/auto-update"/*/custom/favicon.ico
 test -f "$project_dir/backups/auto-update"/*/data/kuma.db
+grep -q 'fake mariadb dump' "$project_dir/backups/auto-update"/*/database.sql
 
 echo "fake auto-update test passed"

@@ -110,7 +110,7 @@ cp -a data "backups/$stamp/data"
 如果你使用的是 MariaDB / MySQL 部署，更新前先按自己的数据库账号做一次 dump。不要把数据库密码写进仓库：
 
 ```bash
-docker compose exec -T uptime-kuma-db mariadb-dump -u <user> -p <database> > "backups/$stamp/uptime-kuma.sql"
+docker compose exec -T db sh -lc 'mariadb-dump -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"' > "backups/$stamp/uptime-kuma.sql"
 ```
 
 如果要自动追最新稳定镜像，Compose 里的 `image` 也要是 `louislam/uptime-kuma:latest`。否则 `docker compose pull uptime-kuma` 只会继续拉原来的 tag。
