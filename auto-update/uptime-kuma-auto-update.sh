@@ -120,6 +120,13 @@ docker_capture() {
     "$DOCKER_BIN" "$@"
 }
 
+running_container_image_id() {
+    container_id=$(compose_capture ps -q "$KUMA_SERVICE" 2>/dev/null | head -n 1 || true)
+    [ -n "$container_id" ] || return 0
+
+    docker_capture inspect --format '{{.Image}}' "$container_id" 2>/dev/null || true
+}
+
 safe_mkdir_lock() {
     if [ "$DRY_RUN" = "1" ]; then
         log "dry-run: would acquire lock $LOCK_DIR"
@@ -160,9 +167,10 @@ preflight() {
 
     compose_config=$(compose_capture config 2>/dev/null) || die "docker compose config failed"
 
-    printf '%s\n' "$compose_config" | grep -q "$KUMA_SERVICE" || die "compose service not found: $KUMA_SERVICE"
-    printf '%s\n' "$compose_config" | grep -q 'patch-favicon.sh' || die "compose config does not include patch-favicon.sh mount or entrypoint"
-    printf '%s\n' "$compose_config" | grep -q 'favicon.ico' || die "compose config does not include favicon.ico mount"
+    printf '%s\n' "$compose_config" | grep -Fq "$KUMA_SERVICE" || die "compose service not found: $KUMA_SERVICE"
+    printf '%s\n' "$compose_config" | grep -Fq "image: $KUMA_IMAGE" || die "compose config does not use expected image: $KUMA_IMAGE"
+    printf '%s\n' "$compose_config" | grep -Fq 'patch-favicon.sh' || die "compose config does not include patch-favicon.sh mount or entrypoint"
+    printf '%s\n' "$compose_config" | grep -Fq 'favicon.ico' || die "compose config does not include favicon.ico mount"
 
     [ -f custom/favicon.ico ] || die "missing custom/favicon.ico"
     [ -f custom/patch-favicon.sh ] || die "missing custom/patch-favicon.sh"
@@ -303,6 +311,10 @@ main() {
 
     stamp=$(date '+%Y-%m-%d-%H%M%S')
     before_id=$(image_id)
+    rollback_source_id="$before_id"
+    if [ -z "$rollback_source_id" ]; then
+        rollback_source_id=$(running_container_image_id)
+    fi
     rollback_image=""
 
     log "pulling image for $KUMA_SERVICE"
@@ -316,9 +328,9 @@ main() {
         exit 0
     fi
 
-    if [ -n "$before_id" ]; then
+    if [ -n "$rollback_source_id" ]; then
         rollback_image="uptime-kuma-auto-update-rollback:$stamp"
-        docker_capture tag "$before_id" "$rollback_image"
+        docker_capture tag "$rollback_source_id" "$rollback_image"
     fi
 
     backup_dir=$(backup_project "$stamp")
