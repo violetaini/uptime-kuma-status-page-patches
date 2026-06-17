@@ -228,4 +228,111 @@ fs.writeFileSync(indexPath, html);
 NODE
 fi
 
+asset_dir="/app/dist/assets"
+
+if [ -d "$asset_dir" ]; then
+    node - "$asset_dir" "$index_file" <<'NODE'
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+
+const assetDir = process.argv[2];
+const indexPath = process.argv[3];
+const faviconPath = "/app/custom/favicon.ico";
+
+if (!fs.existsSync(faviconPath)) {
+    process.exit(0);
+}
+
+const faviconDataUrl = "data:image/x-icon;base64," + fs.readFileSync(faviconPath).toString("base64");
+const originalIconPattern = /icon\(([$A-Z_a-z][$\w]*)\)\{return \1===(["'])\/icon\.svg\2\?\1:([$A-Z_a-z][$\w]*)\(\)\+\1\}/g;
+const patchedNeedle = `==="/favicon.ico"?${JSON.stringify(faviconDataUrl)}:`;
+
+let patchedCount = 0;
+let existingCount = 0;
+const patchedAssets = [];
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+for (const name of fs.readdirSync(assetDir)) {
+    if (!name.endsWith(".js")) {
+        continue;
+    }
+
+    if (/^index-codex-[0-9a-f]{12}\.js$/.test(name)) {
+        continue;
+    }
+
+    const file = path.join(assetDir, name);
+    let js = fs.readFileSync(file, "utf8");
+    const hadPatch = js.includes(patchedNeedle);
+    let changed = 0;
+
+    js = js.replace(originalIconPattern, (match, iconArg, quote, baseUrlFn) => {
+        changed += 1;
+        return `icon(${iconArg}){return ${iconArg}==="/favicon.ico"?${JSON.stringify(faviconDataUrl)}:${iconArg}==="/icon.svg"?${iconArg}:${baseUrlFn}()+${iconArg}}`;
+    });
+
+    if (changed > 0) {
+        fs.writeFileSync(file, js);
+        patchedCount += changed;
+    }
+
+    if (hadPatch || js.includes(patchedNeedle)) {
+        existingCount += 1;
+        patchedAssets.push({
+            name,
+            content: js,
+        });
+    }
+}
+
+if (patchedCount === 0 && existingCount === 0) {
+    console.error("Unable to patch manage page favicon preview");
+    process.exit(1);
+}
+
+if (patchedAssets.length > 0 && fs.existsSync(indexPath)) {
+    let html = fs.readFileSync(indexPath, "utf8");
+    let rewrites = 0;
+    const keepGeneratedAssets = new Set();
+
+    for (const asset of patchedAssets) {
+        const hash = crypto.createHash("sha256").update(asset.content).digest("hex").slice(0, 12);
+        const generatedName = asset.name.startsWith("index-")
+            ? `index-codex-${hash}.js`
+            : asset.name.replace(/\.js$/, `-codex-${hash}.js`);
+        const generatedPath = path.join(assetDir, generatedName);
+
+        if (!fs.existsSync(generatedPath) || fs.readFileSync(generatedPath, "utf8") !== asset.content) {
+            fs.writeFileSync(generatedPath, asset.content);
+        }
+
+        keepGeneratedAssets.add(generatedName);
+
+        const before = html;
+        if (asset.name.startsWith("index-")) {
+            html = html.replace(/assets\/index-(?:codex-[0-9a-f]{12}|[^"'<>]+)\.js/g, `assets/${generatedName}`);
+        } else {
+            html = html.replace(new RegExp(escapeRegExp(`assets/${asset.name}`), "g"), `assets/${generatedName}`);
+        }
+
+        if (html !== before) {
+            rewrites += 1;
+        }
+    }
+
+    for (const name of fs.readdirSync(assetDir)) {
+        if (/^index-codex-[0-9a-f]{12}\.js$/.test(name) && !keepGeneratedAssets.has(name)) {
+            fs.unlinkSync(path.join(assetDir, name));
+        }
+    }
+
+    if (rewrites > 0) {
+        fs.writeFileSync(indexPath, html);
+    }
+}
+NODE
+fi
+
 exec "$@"
