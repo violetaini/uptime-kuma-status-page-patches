@@ -70,11 +70,47 @@ docker compose logs --tail=120 uptime-kuma
 
 `patch-favicon.sh` 会把一言加载器注入到 Uptime Kuma 的 `index.html`，页面加载后自动填充这两个元素。请求失败时会保留 fallback 文案。
 
-## 更新时会不会失效
+## 如何更新 Uptime Kuma
 
-正常重启不会失效。只要 Docker Compose 里还保留 `custom/favicon.ico`、`custom/patch-favicon.sh` 这两个挂载，以及自定义 `entrypoint`，容器每次启动都会重新给 Uptime Kuma 当前镜像打补丁。
+更新前先确认项目目录和容器名。下面示例假设项目目录是 `/www/server/uptime-kuma`，服务名是 `uptime-kuma`：
 
-更新镜像也按同样逻辑生效：
+```bash
+cd /www/server/uptime-kuma
+docker compose ps
+docker compose config | grep -E 'image:|patch-favicon|favicon.ico|entrypoint|command'
+```
+
+确认输出里仍然能看到：
+
+- `image: louislam/uptime-kuma:2`
+- `./custom/favicon.ico:/app/custom/favicon.ico:ro`
+- `./custom/patch-favicon.sh:/app/custom/patch-favicon.sh:ro`
+- `/app/custom/patch-favicon.sh`
+- `node server/server.js`
+
+更新前建议先备份 Compose 文件、补丁文件和 Kuma 数据：
+
+```bash
+cd /www/server/uptime-kuma
+stamp="$(date +%F-%H%M%S)"
+mkdir -p "backups/$stamp"
+cp docker-compose.yml "backups/$stamp/docker-compose.yml"
+cp -a custom "backups/$stamp/custom"
+```
+
+如果你使用的是默认 SQLite 数据目录，再备份 `/app/data` 对应的本地目录：
+
+```bash
+cp -a data "backups/$stamp/data"
+```
+
+如果你使用的是 MariaDB / MySQL 部署，更新前先按自己的数据库账号做一次 dump。不要把数据库密码写进仓库：
+
+```bash
+docker compose exec -T uptime-kuma-db mariadb-dump -u <user> -p <database> > "backups/$stamp/uptime-kuma.sql"
+```
+
+确认备份后拉取新镜像并重建 Kuma 容器：
 
 ```bash
 cd /www/server/uptime-kuma
@@ -82,6 +118,20 @@ docker compose pull uptime-kuma
 docker compose up -d uptime-kuma
 docker compose logs --tail=120 uptime-kuma
 ```
+
+日志里没有 `Unable to patch ...`，并且 Kuma 能正常启动，就说明补丁已经重新套到新镜像上。随后用浏览器无痕窗口打开状态页，再按 `docs/verification.md` 做 favicon 和一言检查。
+
+如果更新后容器起不来，先看日志：
+
+```bash
+docker compose logs --tail=200 uptime-kuma
+```
+
+如果日志里出现 `Unable to patch status_page.js favicon renderer` 或 `Unable to patch status-page manifest icon`，说明 Uptime Kuma 新版本改了内部文件结构，需要调整 `patch-favicon.sh`。临时恢复服务时，可以先回滚到更新前备份的 Compose/数据，或临时移除补丁挂载和自定义 `entrypoint` 后启动原版 Kuma。
+
+## 更新后补丁会不会失效
+
+正常重启不会失效。只要 Docker Compose 里还保留 `custom/favicon.ico`、`custom/patch-favicon.sh` 这两个挂载，以及自定义 `entrypoint`，容器每次启动都会重新给 Uptime Kuma 当前镜像打补丁。
 
 如果 Uptime Kuma 以后大改了内部文件结构，脚本找不到预期代码时会让容器启动失败并打印明确错误，例如 `Unable to patch status_page.js favicon renderer`。这是故意的，避免静默上线一个角标再次失效的版本。
 
