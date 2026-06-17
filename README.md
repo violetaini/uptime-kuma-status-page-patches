@@ -1,7 +1,6 @@
 # Uptime Kuma status page patches
 
-这个仓库记录一个 Uptime Kuma 状态页在启用 Cloudflare Tunnel 后做过的补丁方式。仓库只包含可复用的脚本和脱敏示例，不包含服务器密钥、证书路径、真实数据库密码或站点头像文件。
-
+这个仓库记录一个 Uptime Kuma 状态页在启用 Cloudflare Tunnel 后做过的补丁方式。
 ## 解决的问题
 
 启用 Cloudflare Tunnel / Cloudflare 访问保护后，浏览器在无痕窗口里访问 `/favicon.ico` 可能被 Cloudflare 拦截，导致状态页角标丢失。Uptime Kuma 状态页还会在运行时用 Favico/状态徽标改写 favicon，所以只改 nginx 或只上传图标不够稳定。
