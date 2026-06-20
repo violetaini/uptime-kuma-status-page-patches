@@ -82,6 +82,7 @@ fi
 if [ -f "$index_file" ]; then
     node - "$index_file" <<'NODE'
 const fs = require("fs");
+const zlib = require("zlib");
 
 const indexPath = process.argv[2];
 const faviconPath = "/app/custom/favicon.ico";
@@ -90,6 +91,12 @@ const faviconDataUrl = fs.existsSync(faviconPath)
     ? "data:image/x-icon;base64," + fs.readFileSync(faviconPath).toString("base64")
     : "/favicon.ico";
 const faviconLink = `    <link rel="icon" type="image/x-icon" href="${faviconDataUrl}" />`;
+const writeAsset = (filePath, content) => {
+    const buffer = Buffer.from(content);
+    fs.writeFileSync(filePath, content);
+    fs.writeFileSync(`${filePath}.br`, zlib.brotliCompressSync(buffer));
+    fs.writeFileSync(`${filePath}.gz`, zlib.gzipSync(buffer));
+};
 const faviconScript = `    <script id="status-favicon-lock">
         (() => {
             const faviconHref = ${JSON.stringify(faviconDataUrl)};
@@ -208,6 +215,117 @@ const yiyanScript = `    <script id="status-yiyan-loader">
             }
         })();
     </script>`;
+const settingsNavScript = `    <script id="status-settings-navigation-fix">
+        (() => {
+            const handler = (event) => {
+                const anchor = event.target instanceof Element
+                    ? event.target.closest('.dropdown-profile-pic a[href="/settings/general"]')
+                    : null;
+
+                if (!anchor) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                window.location.assign(anchor.href);
+            };
+
+            document.addEventListener("click", handler, true);
+        })();
+    </script>`;
+const adminShortcutScript = `    <script id="status-admin-shortcut-loader">
+        (() => {
+            const shortcutId = "status-admin-shortcut";
+            const shortcutHref = "/dashboard";
+            const shortcutLabel = "前往后台面板";
+            let observer;
+
+            const removeShortcut = () => {
+                const existing = document.getElementById(shortcutId);
+
+                if (existing) {
+                    existing.remove();
+                }
+            };
+
+            const ensureShortcut = () => {
+                if (!location.pathname.startsWith("/status/")) {
+                    removeShortcut();
+                    return false;
+                }
+
+                const footer = document.querySelector("footer");
+
+                if (!footer) {
+                    return false;
+                }
+
+                let shortcut = document.getElementById(shortcutId);
+
+                if (!shortcut) {
+                    shortcut = document.createElement("div");
+                    shortcut.id = shortcutId;
+                    shortcut.className = "status-admin-shortcut";
+                    shortcut.style.display = "flex";
+                    shortcut.style.justifyContent = "flex-end";
+                    shortcut.style.marginTop = "0.5rem";
+                    shortcut.style.fontSize = "0.95rem";
+
+                    const link = document.createElement("a");
+                    link.href = shortcutHref;
+                    link.textContent = shortcutLabel;
+                    link.className = "text-decoration-none fw-semibold";
+                    link.style.color = "var(--bs-primary)";
+
+                    shortcut.appendChild(link);
+                    footer.appendChild(shortcut);
+                } else if (shortcut.parentElement !== footer) {
+                    footer.appendChild(shortcut);
+                }
+
+                return true;
+            };
+
+            let scheduled = false;
+            const scheduleEnsureShortcut = () => {
+                if (scheduled) {
+                    return;
+                }
+
+                scheduled = true;
+                window.setTimeout(() => {
+                    scheduled = false;
+                    ensureShortcut();
+                }, 0);
+            };
+
+            const watchTarget = () => {
+                if (!observer && document.body) {
+                    observer = new MutationObserver(scheduleEnsureShortcut);
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ["class", "style", "href"],
+                    });
+                }
+            };
+
+            ensureShortcut();
+            watchTarget();
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", () => {
+                    watchTarget();
+                    ensureShortcut();
+                }, { once: true });
+            }
+
+            window.addEventListener("pageshow", ensureShortcut);
+            window.setInterval(ensureShortcut, 3000);
+        })();
+    </script>`;
 
 if (/<link\b[^>]*\brel=["']icon["'][^>]*>/i.test(html)) {
     html = html.replace(/^[ \t]*<link\b[^>]*\brel=["']icon["'][^>]*>\s*$/im, faviconLink);
@@ -217,24 +335,26 @@ if (/<link\b[^>]*\brel=["']icon["'][^>]*>/i.test(html)) {
 
 html = html.replace(/^[ \t]*<script\b[^>]*\bid=["']status-yiyan-loader["'][\s\S]*?<\/script>\s*$/im, "");
 html = html.replace(/^[ \t]*<script\b[^>]*\bid=["']status-favicon-lock["'][\s\S]*?<\/script>\s*$/im, "");
+html = html.replace(/^[ \t]*<script\b[^>]*\bid=["']status-settings-navigation-fix["'][\s\S]*?<\/script>\s*$/im, "");
+html = html.replace(/^[ \t]*<script\b[^>]*\bid=["']status-admin-shortcut-loader["'][\s\S]*?<\/script>\s*$/im, "");
 
 if (/<\/body>/i.test(html)) {
-    html = html.replace(/<\/body>/i, `${faviconScript}\n${yiyanScript}\n</body>`);
+    html = html.replace(/<\/body>/i, `${faviconScript}\n${yiyanScript}\n${settingsNavScript}\n${adminShortcutScript}\n</body>`);
 } else {
-    html += `\n${faviconScript}\n${yiyanScript}\n`;
+    html += `\n${faviconScript}\n${yiyanScript}\n${settingsNavScript}\n${adminShortcutScript}\n`;
 }
 
-fs.writeFileSync(indexPath, html);
+writeAsset(indexPath, html);
 NODE
 fi
 
 asset_dir="/app/dist/assets"
-
 if [ -d "$asset_dir" ]; then
     node - "$asset_dir" "$index_file" <<'NODE'
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const zlib = require("zlib");
 
 const assetDir = process.argv[2];
 const indexPath = process.argv[3];
@@ -247,6 +367,16 @@ if (!fs.existsSync(faviconPath)) {
 const faviconDataUrl = "data:image/x-icon;base64," + fs.readFileSync(faviconPath).toString("base64");
 const originalIconPattern = /icon\(([$A-Z_a-z][$\w]*)\)\{return \1===(["'])\/icon\.svg\2\?\1:([$A-Z_a-z][$\w]*)\(\)\+\1\}/g;
 const patchedNeedle = `==="/favicon.ico"?${JSON.stringify(faviconDataUrl)}:`;
+const settingsPattern = /currentPage\(\)\{let t=E\(\)\.path.split\("\/"\),e=t\[t\.length-1\];return!e\|\|e==="settings"\?null:e\}/;
+const settingsPatch = 'currentPage(){const path=this.$route?.path||"";const pathSplit=path.split("/");const pathEnd=pathSplit[pathSplit.length-1];return!pathEnd||pathEnd==="settings"?null:pathEnd}';
+const socketPattern = /socket\s*=\s*io\(url\)\s*;/;
+const socketPatch = 'socket = io(url, { transports: ["polling"], upgrade: false, reconnectionAttempts: 3, timeout: 20000 });';
+const writeAsset = (filePath, content) => {
+    const buffer = Buffer.from(content);
+    fs.writeFileSync(filePath, content);
+    fs.writeFileSync(`${filePath}.br`, zlib.brotliCompressSync(buffer));
+    fs.writeFileSync(`${filePath}.gz`, zlib.gzipSync(buffer));
+};
 
 let patchedCount = 0;
 let existingCount = 0;
@@ -259,26 +389,38 @@ for (const name of fs.readdirSync(assetDir)) {
         continue;
     }
 
-    if (/^index-codex-[0-9a-f]{12}\.js$/.test(name)) {
+    if (/-codex-[0-9a-f]{12}\.js$/.test(name)) {
         continue;
     }
 
     const file = path.join(assetDir, name);
     let js = fs.readFileSync(file, "utf8");
-    const hadPatch = js.includes(patchedNeedle);
-    let changed = 0;
+    const hadPatch = js.includes(patchedNeedle) || js.includes(settingsPatch) || js.includes(socketPatch);
+    let changed = false;
 
     js = js.replace(originalIconPattern, (match, iconArg, quote, baseUrlFn) => {
-        changed += 1;
+        changed = true;
         return `icon(${iconArg}){return ${iconArg}==="/favicon.ico"?${JSON.stringify(faviconDataUrl)}:${iconArg}==="/icon.svg"?${iconArg}:${baseUrlFn}()+${iconArg}}`;
     });
 
-    if (changed > 0) {
-        fs.writeFileSync(file, js);
-        patchedCount += changed;
+    const settingsUpdated = js.replace(settingsPattern, settingsPatch);
+    if (settingsUpdated !== js) {
+        js = settingsUpdated;
+        changed = true;
     }
 
-    if (hadPatch || js.includes(patchedNeedle)) {
+    const socketUpdated = js.replace(socketPattern, socketPatch);
+    if (socketUpdated !== js) {
+        js = socketUpdated;
+        changed = true;
+    }
+
+    if (changed) {
+        writeAsset(file, js);
+        patchedCount += 1;
+    }
+
+    if (changed || hadPatch) {
         existingCount += 1;
         patchedAssets.push({
             name,
@@ -305,7 +447,7 @@ if (patchedAssets.length > 0 && fs.existsSync(indexPath)) {
         const generatedPath = path.join(assetDir, generatedName);
 
         if (!fs.existsSync(generatedPath) || fs.readFileSync(generatedPath, "utf8") !== asset.content) {
-            fs.writeFileSync(generatedPath, asset.content);
+            writeAsset(generatedPath, asset.content);
         }
 
         keepGeneratedAssets.add(generatedName);
@@ -323,13 +465,22 @@ if (patchedAssets.length > 0 && fs.existsSync(indexPath)) {
     }
 
     for (const name of fs.readdirSync(assetDir)) {
-        if (/^index-codex-[0-9a-f]{12}\.js$/.test(name) && !keepGeneratedAssets.has(name)) {
-            fs.unlinkSync(path.join(assetDir, name));
+        if (/-codex-[0-9a-f]{12}\.js$/.test(name) && !keepGeneratedAssets.has(name)) {
+            const file = path.join(assetDir, name);
+            if (fs.existsSync(file)) {
+                fs.unlinkSync(file);
+            }
+            for (const suffix of [".br", ".gz"]) {
+                const sidecar = `${file}${suffix}`;
+                if (fs.existsSync(sidecar)) {
+                    fs.unlinkSync(sidecar);
+                }
+            }
         }
     }
 
     if (rewrites > 0) {
-        fs.writeFileSync(indexPath, html);
+        writeAsset(indexPath, html);
     }
 }
 NODE
